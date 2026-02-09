@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ค้นหารหัสไปรษณีย์ไทย</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Sukhumvit Set', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        select:hover {
+            border-color: #667eea;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        select:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-label {
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .postcode {
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            letter-spacing: 4px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .postcode {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🇹🇭 รหัสไปรษณีย์ไทย</h1>
+        <p class="subtitle">ค้นหารหัสไปรษณีย์จากจังหวัดและอำเภอ</p>
+        
+        <div id="loading" class="loading">
+            กำลังโหลดข้อมูล...
+        </div>
+        
+        <div id="formContainer" style="display: none;">
+            <div class="form-group">
+                <label for="province">เลือกจังหวัด</label>
+                <select id="province">
+                    <option value="">-- เลือกจังหวัด --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="district">เลือกอำเภอ/เขต</label>
+                <select id="district" disabled>
+                    <option value="">-- กรุณาเลือกจังหวัดก่อน --</option>
+                </select>
+            </div>
+            
+            <div id="result" class="result">
+                <div class="result-label">รหัสไปรษณีย์</div>
+                <div id="postcodeDisplay" class="postcode">-</div>
+            </div>
+        </div>
+        
+        <div id="error" class="error">
+            ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง
+        </div>
+    </div>
+    
+    <script>
+        let postcodeData = [];
+        
+        // โหลดข้อมูลรหัสไปรษณีย์
+        async function loadData() {
+            try {
+                const response = await fetch('thailand_postcodes.json');
+                if (!response.ok) throw new Error('Failed to load data');
+                
+                postcodeData = await response.json();
+                
+                // ซ่อน loading แสดงฟอร์ม
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('formContainer').style.display = 'block';
+                
+                // สร้างรายการจังหวัด
+                populateProvinces();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').classList.add('show');
+            }
+        }
+        
+        // สร้างรายการจังหวัด
+        function populateProvinces() {
+            const provinceSelect = document.getElementById('province');
+            const provinces = [...new Set(postcodeData.map(item => item.province))].sort();
+            
+            provinces.forEach(province => {
+                const option = document.createElement('option');
+                option.value = province;
+                option.textContent = province;
+                provinceSelect.appendChild(option);
+            });
+        }
+        
+        // เมื่อเลือกจังหวัด
+        document.getElementById('province').addEventListener('change', function() {
+            const province = this.value;
+            const districtSelect = document.getElementById('district');
+            const resultDiv = document.getElementById('result');
+            
+            // รีเซ็ตอำเภอ
+            districtSelect.innerHTML = '<option value="">-- เลือกอำเภอ/เขต --</option>';
+            districtSelect.disabled = !province;
+            resultDiv.classList.remove('show');
+            
+            if (province) {
+                // กรองข้อมูลตามจังหวัด
+                const districts = postcodeData
+                    .filter(item => item.province === province)
+                    .map(item => ({ name: item.district, postcode: item.postcode }))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+                
+                // เพิ่มอำเภอลง dropdown
+                districts.forEach(district => {
+                    const option = document.createElement('option');
+                    option.value = district.postcode;
+                    option.textContent = district.name;
+                    option.dataset.district = district.name;
+                    districtSelect.appendChild(option);
+                });
+            }
+        });
+        
+        // เมื่อเลือกอำเภอ
+        document.getElementById('district').addEventListener('change', function() {
+            const postcode = this.value;
+            const resultDiv = document.getElementById('result');
+            const postcodeDisplay = document.getElementById('postcodeDisplay');
+            
+            if (postcode) {
+                postcodeDisplay.textContent = postcode;
+                resultDiv.classList.add('show');
+            } else {
+                resultDiv.classList.remove('show');
+            }
+        });
+        
+        // เริ่มโหลดข้อมูลเมื่อหน้าเว็บพร้อม
+        loadData();
+    </script>
+</body>
+</html>
